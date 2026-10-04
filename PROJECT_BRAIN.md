@@ -204,3 +204,60 @@ Rather than running full background evaluations and batch-scoring all 80+ instal
 - **Zero Cloud Leakage**: Hardware metrics and permissions are processed on the local machine via `http://10.0.2.2:11434` (emulator) or ADB reversed port `11434`.
 - **Factual, Structured Generation**: Queries are structured with ground-truth device telemetry to generate objective, 3-part actionable assessments without alarmism or hallucinations.
 
+---
+
+## 8. Authentic Hardware Telemetry Engine (`DevicePerformanceCollector`)
+
+To provide genuine, non-mocked hardware insights, AppPulse executes direct low-level probes without root privileges:
+1. **CPU SoC Identification & Clock Frequencies**:
+   - Queries `Build.SOC_MODEL` (Android 12+) and parses `/proc/cpuinfo` for authentic chipset identifiers (e.g., MediaTek Dimensity 6300, Qualcomm Snapdragon).
+   - Scans `/sys/devices/system/cpu/cpu[0..N]/cpufreq/cpuinfo_max_freq` to compute authentic maximum CPU clock speeds (e.g., 2.40 GHz).
+   - Queries display refresh rates via `WindowManager` (e.g., 120Hz, 90Hz, 60Hz).
+2. **Authentic Headless GPU Extraction via EGL14**:
+   - Creates a temporary, off-screen 1x1 pbuffer surface using `EGL14.eglCreatePbufferSurface`.
+   - Queries OpenGL ES directly with `GLES20.glGetString(GLES20.GL_RENDERER)` and `GLES20.GL_VENDOR` (resolving real GPU hardware like `Mali-G57 MC2` or `Adreno (TM) 619`), then cleanly terminates the EGL context.
+   - Assesses Vulkan and GLES version capabilities from `ActivityManager.deviceConfigurationInfo`.
+
+---
+
+## 9. Reactive User Decision Loop ("Keep App" & "Ignore")
+
+To ensure user decisions have real, immediate system-wide effects:
+1. **Room Persistence**: Tapping "Keep App" writes a `UserDecisionEntity` with decision type `KEEP` (or `IGNORE`) into the SQLite database.
+2. **Immediate Deck Elimination**: `ReviewScreen` filters out both `KEEP` and `IGNORE` records from its active `flaggedApps` flow in real time.
+3. **Dashboard Reactivity**: `DashboardScreen` observes `decisionsFlow` and excludes all kept/ignored applications from `attentionApps`, immediately decrementing the "Apps Needing Attention" counter without requiring a restart or manual rescan.
+4. **Transparent User Feedback**: Emits immediate confirmation toasts (`"[App Name] marked as kept & trusted"`).
+
+---
+
+## 10. 3-Phase On-Demand App Diagnostics (`AppTestScreen`)
+
+Diagnostics follow a structured 3-phase state machine:
+```
+┌──────────────────┐      Tap Analyze      ┌─────────────────────────────┐      Done      ┌───────────────────────────┐
+│ Phase 1: CONFIG  │ ───────────────────>  │ Phase 2: DIAGNOSING         │ ────────────>  │ Phase 3: OUTPUT           │
+│ App details,     │                       │ Circular loading ring with  │                │ Dedicated report, dual    │
+│ Parameter boxes  │                       │ 4 animated step completion  │                │ health & impact scores,   │
+│ (Security, RAM,  │                       │ progress bars (Package,     │                │ real measurements, Qwen   │
+│ Storage, Battery)│                       │ Storage, Perms, AI Qwen)    │                │ assessment, action buttons│
+└──────────────────┘                       └─────────────────────────────┘                └───────────────────────────┘
+```
+
+---
+
+## 11. Universal Real App Icon Architecture (`AppIconImage`)
+
+- **Direct Extraction**: Loads authentic application icons directly from `PackageManager.getApplicationIcon(packageName)` rather than displaying generic placeholder icons.
+- **In-Memory BitMap Caching**: Employs an in-memory `ImageBitmap` cache (`iconCache`) to prevent repeated IPC calls to `PackageManager`, ensuring 60fps buttery scrolling across the Dashboard, Top Search, Review Deck, All Apps listing, and Diagnostic reports.
+- **Fallback Resilience**: Gracefully renders a themed fallback vector only if an uninstalled or system package fails icon extraction.
+
+---
+
+## 12. Full Interactive Ollama Qwen Chatbot (`AskAppPulseScreen`)
+
+- **Conversational Interface**: Dual-sided chat bubbles (user right-aligned in primary theme, AI left-aligned in surface variant).
+- **Telemetry System Prompt Injection**: Automatically injects live phone model, Android version, RAM/Storage headroom, CPU/GPU details, and top impact apps into the conversation prompt.
+- **Offline Fallback Intelligence**: If local Ollama is offline or unreachable, seamlessly falls back to the deterministic on-device `NaturalLanguageQueryEngine` without throwing errors or breaking user flow.
+- **Prompt Suggestions & History Clearing**: Interactive quick-suggestion chips for common diagnostic inquiries and an instant session reset option.
+
+

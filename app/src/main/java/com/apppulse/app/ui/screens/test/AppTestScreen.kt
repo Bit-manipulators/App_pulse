@@ -3,7 +3,10 @@ package com.apppulse.app.ui.screens.test
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -13,6 +16,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -29,10 +33,22 @@ import com.apppulse.app.data.remote.OllamaClient
 import com.apppulse.app.domain.analyzer.AnalysisParameter
 import com.apppulse.app.domain.analyzer.SingleAppAnalysisReport
 import com.apppulse.app.domain.analyzer.SingleAppAnalyzer
-import com.apppulse.app.ui.components.HealthScoreRing
+import com.apppulse.app.ui.components.AppIconImage
 import com.apppulse.app.ui.components.ImpactBadge
 import com.apppulse.app.ui.theme.*
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+
+enum class DiagnosticPhase {
+    CONFIG,
+    DIAGNOSING,
+    OUTPUT
+}
+
+data class DiagnosisStep(
+    val title: String,
+    val description: String
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -44,6 +60,7 @@ fun AppTestScreen(
     val coroutineScope = rememberCoroutineScope()
     val analyzer = remember { SingleAppAnalyzer(context) }
 
+    var currentPhase by remember { mutableStateOf(DiagnosticPhase.CONFIG) }
     var selectedParams by remember {
         mutableStateOf(
             setOf(
@@ -55,207 +72,415 @@ fun AppTestScreen(
         )
     }
 
-    var isAnalyzing by remember { mutableStateOf(false) }
     var report by remember { mutableStateOf<SingleAppAnalysisReport?>(null) }
     var ollamaStatus by remember { mutableStateOf<Pair<Boolean, String>?>(null) }
     var showEndpointDialog by remember { mutableStateOf(false) }
     var endpointInput by remember { mutableStateOf(OllamaClient.baseUrl) }
 
+    // Diagnosis Steps State (0 = not started, 1 = auditing pkg, 2 = storage, 3 = permissions, 4 = ai qwen)
+    var activeStepIndex by remember { mutableStateOf(0) }
+    val step1Progress by animateFloatAsState(targetValue = if (activeStepIndex >= 1) 1f else 0f, animationSpec = tween(700), label = "p1")
+    val step2Progress by animateFloatAsState(targetValue = if (activeStepIndex >= 2) 1f else 0f, animationSpec = tween(700), label = "p2")
+    val step3Progress by animateFloatAsState(targetValue = if (activeStepIndex >= 3) 1f else 0f, animationSpec = tween(700), label = "p3")
+    val step4Progress by animateFloatAsState(targetValue = if (activeStepIndex >= 4) 1f else 0f, animationSpec = tween(900), label = "p4")
+
+    val steps = remember {
+        listOf(
+            DiagnosisStep("Auditing Architecture & Platform Target", "Checking ABI runtime, SDK targets, and background services"),
+            DiagnosisStep("Measuring Storage Footprint & Cache", "Querying exact code size, app data volume, and cache bloat"),
+            DiagnosisStep("Inspecting Sensitive Permissions", "Auditing granted runtime rights, location, microphone, and contacts"),
+            DiagnosisStep("Synthesizing AI Risk & Performance Profile", "Consulting Ollama Qwen 2.5 Coder for impact assessment")
+        )
+    }
+
     LaunchedEffect(Unit) {
         ollamaStatus = OllamaClient.checkConnection()
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("App Diagnostics", fontWeight = FontWeight.Bold) },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
-                    }
-                },
-                actions = {
-                    // Ollama status chip
-                    val isConnected = ollamaStatus?.first == true
-                    Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = if (isConnected) HealthHealthyBg else HealthReviewBg,
-                        modifier = Modifier
-                            .padding(end = 8.dp)
-                            .clickable { showEndpointDialog = true }
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(8.dp)
-                                    .clip(CircleShape)
-                                    .background(if (isConnected) HealthHealthy else HealthReview)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = if (isConnected) "Qwen Ready" else "Configure AI",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = if (isConnected) HealthHealthy else HealthReview,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background
-                )
-            )
+    // Handle system back navigation
+    BackHandler {
+        when (currentPhase) {
+            DiagnosticPhase.DIAGNOSING -> { /* Block back during diagnosis */ }
+            DiagnosticPhase.OUTPUT -> currentPhase = DiagnosticPhase.CONFIG
+            DiagnosticPhase.CONFIG -> onNavigateBack()
         }
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(horizontal = 20.dp)
-                .verticalScroll(rememberScrollState())
-        ) {
-            Spacer(modifier = Modifier.height(10.dp))
+    }
 
-            // Selected App Header Card
-            Card(
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(
-                    modifier = Modifier.padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Surface(
-                        shape = RoundedCornerShape(16.dp),
-                        color = MaterialTheme.colorScheme.primaryContainer,
-                        modifier = Modifier.size(56.dp)
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(Icons.Default.Android, contentDescription = null, tint = AccentCyan, modifier = Modifier.size(34.dp))
-                        }
-                    }
-                    Spacer(modifier = Modifier.width(16.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(text = app.label, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                        Text(text = app.packageName, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text(text = "Target SDK ${app.targetSdk} • v${app.versionName}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                }
-            }
+    fun startDiagnosis() {
+        currentPhase = DiagnosticPhase.DIAGNOSING
+        activeStepIndex = 0
+        coroutineScope.launch {
+            // Step 1: Package
+            activeStepIndex = 1
+            delay(800)
 
-            Spacer(modifier = Modifier.height(20.dp))
+            // Step 2: Storage
+            activeStepIndex = 2
+            delay(800)
 
-            // Parameter Selection Section
-            Text(
-                text = "Choose Parameters to Analyze",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = "Select which aspects of the application you want to inspect:",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            // Step 3: Permissions
+            activeStepIndex = 3
+            delay(800)
 
-            Spacer(modifier = Modifier.height(12.dp))
+            // Step 4: AI synthesis
+            activeStepIndex = 4
+            val generatedReport = analyzer.analyzeApp(app, selectedParams)
+            report = generatedReport
+            delay(1000)
 
-            AnalysisParameter.values().forEach { param ->
-                val isSelected = selectedParams.contains(param)
-                Card(
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = if (isSelected) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.surface
-                    ),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 4.dp)
-                        .clickable {
-                            selectedParams = if (isSelected) {
-                                if (selectedParams.size > 1) selectedParams - param else selectedParams
-                            } else {
-                                selectedParams + param
+            // Transition to dedicated output page
+            currentPhase = DiagnosticPhase.OUTPUT
+        }
+    }
+
+    when (currentPhase) {
+        DiagnosticPhase.CONFIG -> {
+            // ==========================================
+            // PAGE 1: CONFIGURATION & PARAMETER SELECTION
+            // ==========================================
+            Scaffold(
+                topBar = {
+                    TopAppBar(
+                        title = { Text("App Diagnostics", fontWeight = FontWeight.Bold) },
+                        navigationIcon = {
+                            IconButton(onClick = onNavigateBack) {
+                                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                             }
-                        }
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Checkbox(
-                            checked = isSelected,
-                            onCheckedChange = { checked ->
-                                selectedParams = if (checked) {
-                                    selectedParams + param
-                                } else {
-                                    if (selectedParams.size > 1) selectedParams - param else selectedParams
+                        },
+                        actions = {
+                            val isConnected = ollamaStatus?.first == true
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = if (isConnected) HealthHealthyBg else HealthAttentionBg,
+                                modifier = Modifier
+                                    .padding(end = 8.dp)
+                                    .clickable { showEndpointDialog = true }
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(8.dp)
+                                            .clip(CircleShape)
+                                            .background(if (isConnected) HealthHealthy else HealthAttention)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = if (isConnected) "Qwen Ready" else "Configure AI",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = if (isConnected) HealthHealthy else HealthAttention,
+                                        fontWeight = FontWeight.Bold
+                                    )
                                 }
                             }
+                        },
+                        colors = TopAppBarDefaults.topAppBarColors(
+                            containerColor = MaterialTheme.colorScheme.background
                         )
+                    )
+                }
+            ) { padding ->
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(padding)
+                        .padding(horizontal = 20.dp)
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // App Header Card with Real Icon
+                    Card(
+                        shape = RoundedCornerShape(20.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            AppIconImage(
+                                packageName = app.packageName,
+                                modifier = Modifier.size(56.dp),
+                                shape = RoundedCornerShape(14.dp)
+                            )
+                            Spacer(modifier = Modifier.width(16.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(text = app.label, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                                Text(text = app.packageName, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(text = "Target SDK ${app.targetSdk} • v${app.versionName}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    Text(
+                        text = "Choose Parameters to Analyze",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Select which aspects of the application you want to inspect:",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    AnalysisParameter.values().forEach { param ->
+                        val isSelected = selectedParams.contains(param)
+                        Card(
+                            shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = if (isSelected) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.surface
+                            ),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp)
+                                .clickable {
+                                    selectedParams = if (isSelected) {
+                                        if (selectedParams.size > 1) selectedParams - param else selectedParams
+                                    } else {
+                                        selectedParams + param
+                                    }
+                                }
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Checkbox(
+                                    checked = isSelected,
+                                    onCheckedChange = { checked ->
+                                        selectedParams = if (checked) {
+                                            selectedParams + param
+                                        } else {
+                                            if (selectedParams.size > 1) selectedParams - param else selectedParams
+                                        }
+                                    }
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = param.label,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                    Text(
+                                        text = param.description,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    Button(
+                        onClick = { startDiagnosis() },
+                        enabled = selectedParams.isNotEmpty(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(54.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue)
+                    ) {
+                        Icon(Icons.Default.Bolt, contentDescription = null, tint = DeepNavy)
                         Spacer(modifier = Modifier.width(8.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = param.label,
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                            Text(
-                                text = param.description,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                        Text("Run AI Performance & Risk Analysis", fontWeight = FontWeight.Bold, color = DeepNavy, fontSize = 15.sp)
+                    }
+
+                    Spacer(modifier = Modifier.height(30.dp))
+                }
+            }
+        }
+
+        DiagnosticPhase.DIAGNOSING -> {
+            // ==========================================
+            // PAGE 2: CIRCULAR LOADING WITH STEP COMPLETION BARS
+            // ==========================================
+            Surface(
+                modifier = Modifier.fillMaxSize(),
+                color = MaterialTheme.colorScheme.background
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    // Circular Loading Ring with Real App Icon in Center
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier.size(150.dp)
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.fillMaxSize(),
+                            strokeWidth = 6.dp,
+                            color = AccentCyan,
+                            trackColor = AccentCyan.copy(alpha = 0.15f)
+                        )
+                        AppIconImage(
+                            packageName = app.packageName,
+                            modifier = Modifier.size(76.dp),
+                            shape = CircleShape
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(28.dp))
+
+                    Text(
+                        text = "Diagnosing ${app.label}...",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onBackground
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = "Auditing runtime metrics and synthesizing Qwen AI assessment",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    Spacer(modifier = Modifier.height(36.dp))
+
+                    // Step Completion Progress Bars
+                    val progressValues = listOf(step1Progress, step2Progress, step3Progress, step4Progress)
+
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        steps.forEachIndexed { index, step ->
+                            val progress = progressValues[index]
+                            val isCompleted = progress >= 0.99f
+                            val isRunning = activeStepIndex == (index + 1) && !isCompleted
+
+                            Card(
+                                shape = RoundedCornerShape(16.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = if (isCompleted) HealthHealthyBg else MaterialTheme.colorScheme.surface
+                                ),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Column(modifier = Modifier.padding(14.dp)) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = step.title,
+                                            style = MaterialTheme.typography.titleSmall,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = if (isCompleted) HealthHealthy else MaterialTheme.colorScheme.onSurface
+                                        )
+
+                                        if (isCompleted) {
+                                            Icon(
+                                                imageVector = Icons.Default.CheckCircle,
+                                                contentDescription = "Completed",
+                                                tint = HealthHealthy,
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                        } else if (isRunning) {
+                                            CircularProgressIndicator(
+                                                modifier = Modifier.size(16.dp),
+                                                strokeWidth = 2.dp,
+                                                color = AccentCyan
+                                            )
+                                        }
+                                    }
+
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = step.description,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    LinearProgressIndicator(
+                                        progress = { progress },
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(6.dp)
+                                            .clip(RoundedCornerShape(3.dp)),
+                                        color = if (isCompleted) HealthHealthy else AccentCyan,
+                                        trackColor = MaterialTheme.colorScheme.surfaceVariant
+                                    )
+                                }
+                            }
                         }
                     }
                 }
             }
+        }
 
-            Spacer(modifier = Modifier.height(20.dp))
-
-            // Start Analysis Button
-            Button(
-                onClick = {
-                    isAnalyzing = true
-                    coroutineScope.launch {
-                        report = analyzer.analyzeApp(app, selectedParams)
-                        isAnalyzing = false
-                    }
-                },
-                enabled = !isAnalyzing && selectedParams.isNotEmpty(),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(54.dp),
-                shape = RoundedCornerShape(16.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue)
-            ) {
-                if (isAnalyzing) {
-                    CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Text("Qwen AI is analyzing metrics...", fontWeight = FontWeight.Bold)
-                } else {
-                    Icon(Icons.Default.Bolt, contentDescription = null, tint = Color.White)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Run AI Performance & Risk Analysis", fontWeight = FontWeight.Bold, color = Color.White)
-                }
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // Analysis Report Presentation
-            AnimatedVisibility(visible = report != null) {
-                report?.let { rep ->
-                    Column {
-                        Text(
-                            text = "Analysis Results",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold
+        DiagnosticPhase.OUTPUT -> {
+            // ==========================================
+            // PAGE 3: DEDICATED FULL OUTPUT SCREEN
+            // ==========================================
+            Scaffold(
+                topBar = {
+                    TopAppBar(
+                        title = { Text("${app.label} Diagnostic Report", fontWeight = FontWeight.Bold) },
+                        navigationIcon = {
+                            IconButton(onClick = { currentPhase = DiagnosticPhase.CONFIG }) {
+                                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                            }
+                        },
+                        colors = TopAppBarDefaults.topAppBarColors(
+                            containerColor = MaterialTheme.colorScheme.background
                         )
-                        Spacer(modifier = Modifier.height(12.dp))
+                    )
+                }
+            ) { padding ->
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(padding)
+                        .padding(horizontal = 20.dp)
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    val rep = report
+                    if (rep != null) {
+                        // App Identity Card
+                        Card(
+                            shape = RoundedCornerShape(20.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(16.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                AppIconImage(
+                                    packageName = app.packageName,
+                                    modifier = Modifier.size(56.dp),
+                                    shape = RoundedCornerShape(14.dp)
+                                )
+                                Spacer(modifier = Modifier.width(16.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(text = app.label, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                                    Text(text = app.packageName, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(text = "Target SDK ${app.targetSdk} • v${app.versionName}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
 
                         // Score Row
                         Row(
@@ -301,7 +526,7 @@ fun AppTestScreen(
 
                         Spacer(modifier = Modifier.height(16.dp))
 
-                        // Measured Metrics Card
+                        // Real Device Measurements Card
                         Card(
                             shape = RoundedCornerShape(18.dp),
                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -358,7 +583,7 @@ fun AppTestScreen(
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = AccentCyan, modifier = Modifier.size(20.dp))
                                     Spacer(modifier = Modifier.width(8.dp))
-                                    Text("Qwen AI Performance Analysis", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                                    Text("Qwen AI Diagnostic Assessment", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                                 }
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Surface(
@@ -389,7 +614,7 @@ fun AppTestScreen(
                         // Quick Action Buttons
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
                             OutlinedButton(
                                 onClick = {
@@ -399,7 +624,7 @@ fun AppTestScreen(
                                     context.startActivity(intent)
                                 },
                                 modifier = Modifier.weight(1f),
-                                shape = RoundedCornerShape(14.dp)
+                                shape = RoundedCornerShape(12.dp)
                             ) {
                                 Text("App Info")
                             }
@@ -412,10 +637,19 @@ fun AppTestScreen(
                                     context.startActivity(intent)
                                 },
                                 modifier = Modifier.weight(1f),
-                                shape = RoundedCornerShape(14.dp),
+                                shape = RoundedCornerShape(12.dp),
                                 colors = ButtonDefaults.buttonColors(containerColor = HealthAttention)
                             ) {
-                                Text("Uninstall", color = Color.White)
+                                Text("Uninstall", color = DeepNavy, fontWeight = FontWeight.Bold)
+                            }
+
+                            Button(
+                                onClick = { currentPhase = DiagnosticPhase.CONFIG },
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue)
+                            ) {
+                                Text("New Test", color = DeepNavy, fontWeight = FontWeight.Bold)
                             }
                         }
 
@@ -430,7 +664,7 @@ fun AppTestScreen(
     if (showEndpointDialog) {
         AlertDialog(
             onDismissRequest = { showEndpointDialog = false },
-            title = { Text("Ollama Qwen AI Connection") },
+            title = { Text("Ollama Qwen AI Setup") },
             text = {
                 Column {
                     Text(

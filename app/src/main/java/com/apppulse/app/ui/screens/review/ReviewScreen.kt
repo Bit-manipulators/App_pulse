@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.apppulse.app.data.local.entities.AppSnapshotEntity
 import com.apppulse.app.data.repository.AppPulseRepository
+import com.apppulse.app.ui.components.AppIconImage
 import com.apppulse.app.ui.components.ImpactBadge
 import com.apppulse.app.ui.theme.*
 import kotlinx.coroutines.launch
@@ -41,11 +42,11 @@ fun ReviewScreen(
     val scoreMap = remember(scoreResults) { scoreResults.associateBy { it.packageName } }
     val decisionMap = remember(decisions) { decisions.associateBy { it.packageName } }
 
-    // Flagged attention apps not ignored
+    // Flagged attention apps not ignored or kept
     val flaggedApps = remember(snapshots, scoreMap, decisionMap) {
         snapshots.filter { app ->
             val dec = decisionMap[app.packageName]
-            if (dec?.decision == "IGNORE") return@filter false
+            if (dec?.decision == "IGNORE" || dec?.decision == "KEEP") return@filter false
             val sc = scoreMap[app.packageName]
             (sc?.impactBand == "High" || (sc?.healthScore ?: 100.0) < 60.0)
         }
@@ -149,15 +150,11 @@ fun ReviewScreen(
                         ) {
                             Column(modifier = Modifier.padding(24.dp)) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Surface(
-                                        shape = RoundedCornerShape(14.dp),
-                                        color = MaterialTheme.colorScheme.surfaceVariant,
-                                        modifier = Modifier.size(54.dp)
-                                    ) {
-                                        Box(contentAlignment = Alignment.Center) {
-                                            Icon(Icons.Default.Android, contentDescription = null, tint = PrimaryBlue, modifier = Modifier.size(32.dp))
-                                        }
-                                    }
+                                    AppIconImage(
+                                        packageName = currentApp.packageName,
+                                        modifier = Modifier.size(54.dp),
+                                        shape = RoundedCornerShape(14.dp)
+                                    )
                                     Spacer(modifier = Modifier.width(16.dp))
                                     Column {
                                         Text(
@@ -245,8 +242,10 @@ fun ReviewScreen(
                     ) {
                         OutlinedButton(
                             onClick = {
+                                val label = currentApp.label
                                 coroutineScope.launch {
                                     repository.setUserDecision(currentApp.packageName, "IGNORE")
+                                    android.widget.Toast.makeText(context, "Ignored alerts for $label", android.widget.Toast.LENGTH_SHORT).show()
                                     if (currentIndex >= flaggedApps.size - 1) {
                                         currentIndex = (flaggedApps.size - 2).coerceAtLeast(0)
                                     }
@@ -262,12 +261,12 @@ fun ReviewScreen(
 
                         Button(
                             onClick = {
+                                val label = currentApp.label
                                 coroutineScope.launch {
                                     repository.setUserDecision(currentApp.packageName, "KEEP")
-                                    if (currentIndex < flaggedApps.size - 1) {
-                                        currentIndex++
-                                    } else {
-                                        currentIndex = 0
+                                    android.widget.Toast.makeText(context, "$label marked as kept & trusted", android.widget.Toast.LENGTH_SHORT).show()
+                                    if (currentIndex >= flaggedApps.size - 1) {
+                                        currentIndex = (flaggedApps.size - 2).coerceAtLeast(0)
                                     }
                                 }
                             },
@@ -275,9 +274,9 @@ fun ReviewScreen(
                             shape = RoundedCornerShape(12.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue)
                         ) {
-                            Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp), tint = DeepNavy)
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("Keep App")
+                            Text("Keep App", color = DeepNavy, fontWeight = FontWeight.Bold)
                         }
                     }
                 }

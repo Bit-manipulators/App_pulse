@@ -35,6 +35,7 @@ import com.apppulse.app.data.collector.DevicePerformanceMetrics
 import com.apppulse.app.data.local.entities.AppSnapshotEntity
 import com.apppulse.app.data.remote.OllamaClient
 import com.apppulse.app.data.repository.AppPulseRepository
+import com.apppulse.app.ui.components.AppIconImage
 import com.apppulse.app.ui.components.MetricCircleChart
 import com.apppulse.app.ui.components.StorageProgressBar
 import com.apppulse.app.ui.theme.*
@@ -58,6 +59,8 @@ fun DashboardScreen(
     val coroutineScope = rememberCoroutineScope()
     val snapshots by repository.snapshotsFlow.collectAsState(initial = emptyList())
     val scoreResults by repository.scoreResultsFlow.collectAsState(initial = emptyList())
+    val decisions by repository.decisionsFlow.collectAsState(initial = emptyList())
+    val decisionMap = remember(decisions) { decisions.associateBy { it.packageName } }
 
     // Telemetry Collector
     val perfCollector = remember { DevicePerformanceCollector(context) }
@@ -121,13 +124,19 @@ fun DashboardScreen(
     val totalBytes = deviceMetrics?.totalStorageBytes ?: (32L * 1024 * 1024 * 1024)
     val reviewableBytes = ((usedBytes * 0.14).toLong()).coerceAtLeast(500L * 1024 * 1024)
 
-    // Attention Apps
-    val attentionApps = remember(snapshots, scoreResults) {
+    // Attention Apps (excluding kept and ignored apps)
+    val attentionApps = remember(snapshots, scoreResults, decisionMap) {
         if (scoreResults.isNotEmpty()) {
-            scoreResults.filter { it.healthScore < 60.0 || it.impactScore >= 50.0 }
+            scoreResults.filter { score ->
+                val dec = decisionMap[score.packageName]
+                val isKeptOrIgnored = dec?.decision == "KEEP" || dec?.decision == "IGNORE"
+                !isKeptOrIgnored && (score.healthScore < 60.0 || score.impactScore >= 50.0)
+            }
         } else {
             snapshots.filter { snapshot ->
-                snapshot.targetSdk < 31 || snapshot.isSystem.not()
+                val dec = decisionMap[snapshot.packageName]
+                val isKeptOrIgnored = dec?.decision == "KEEP" || dec?.decision == "IGNORE"
+                !isKeptOrIgnored && (snapshot.targetSdk < 31 || snapshot.isSystem.not())
             }.take(8)
         }
     }
@@ -562,19 +571,19 @@ fun DashboardScreen(
                             fontWeight = FontWeight.Bold,
                             color = HealthHealthy
                         )
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(modifier = Modifier.height(6.dp))
                         Text(
                             text = "${snapshots.size} applications inspected • System telemetry up to date",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
 
-                        Spacer(modifier = Modifier.height(48.dp))
+                        Spacer(modifier = Modifier.height(24.dp))
 
                         // Success Shield Graphic
                         Box(
                             contentAlignment = Alignment.Center,
-                            modifier = Modifier.size(190.dp)
+                            modifier = Modifier.size(120.dp)
                         ) {
                             Surface(
                                 shape = CircleShape,
@@ -584,34 +593,94 @@ fun DashboardScreen(
                             Surface(
                                 shape = CircleShape,
                                 color = HealthHealthy.copy(alpha = 0.25f),
-                                modifier = Modifier.size(140.dp)
+                                modifier = Modifier.size(90.dp)
                             ) {
                                 Box(contentAlignment = Alignment.Center) {
                                     Icon(
                                         imageVector = Icons.Default.CheckCircle,
                                         contentDescription = "Success",
                                         tint = HealthHealthy,
-                                        modifier = Modifier.size(76.dp)
+                                        modifier = Modifier.size(54.dp)
                                     )
                                 }
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(48.dp))
+                        Spacer(modifier = Modifier.height(24.dp))
+
+                        // Real Audit Summary Breakdown Card
+                        Card(
+                            shape = RoundedCornerShape(18.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp)
+                        ) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Text(
+                                    text = "Audit Summary & Vitality",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text("Installed Apps Audited", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text("${snapshots.size} apps", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+                                }
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text("Needing Review", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text("${attentionApps.size} apps", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, color = if (attentionApps.isNotEmpty()) HealthAttention else HealthHealthy)
+                                }
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text("Device Vitality Index", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text("${deviceMetrics?.performanceScore ?: 85}/100 (${deviceMetrics?.performanceStatus ?: "Optimal"})", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, color = HealthHealthy)
+                                }
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text("RAM Utilization", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text("${deviceMetrics?.ramUsagePercent ?: 0}% active", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, color = PrimaryBlue)
+                                }
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text("Storage in Use", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    val usedGb = String.format("%.1f", usedBytes / (1024.0 * 1024.0 * 1024.0))
+                                    val totGb = String.format("%.1f", totalBytes / (1024.0 * 1024.0 * 1024.0))
+                                    Text("$usedGb / $totGb GB", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(28.dp))
 
                         Button(
                             onClick = { isRescanningOpen = false },
                             shape = RoundedCornerShape(14.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue),
                             modifier = Modifier
-                                .fillMaxWidth(0.7f)
+                                .fillMaxWidth(0.85f)
                                 .height(50.dp)
                         ) {
                             Text(
-                                text = "Back to Dashboard",
+                                text = "Done • View Dashboard",
                                 fontWeight = FontWeight.Bold,
                                 color = DeepNavy,
-                                fontSize = 16.sp
+                                fontSize = 15.sp
                             )
                         }
                     }
@@ -745,20 +814,11 @@ fun DashboardScreen(
                                             .padding(14.dp),
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        Surface(
-                                            shape = RoundedCornerShape(10.dp),
-                                            color = MaterialTheme.colorScheme.surfaceVariant,
-                                            modifier = Modifier.size(42.dp)
-                                        ) {
-                                            Box(contentAlignment = Alignment.Center) {
-                                                Icon(
-                                                    imageVector = Icons.Default.Android,
-                                                    contentDescription = null,
-                                                    tint = AccentCyan,
-                                                    modifier = Modifier.size(22.dp)
-                                                )
-                                            }
-                                        }
+                                        AppIconImage(
+                                            packageName = app.packageName,
+                                            modifier = Modifier.size(42.dp),
+                                            shape = RoundedCornerShape(10.dp)
+                                        )
 
                                         Spacer(modifier = Modifier.width(12.dp))
 

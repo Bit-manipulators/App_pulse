@@ -18,6 +18,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.apppulse.app.data.local.entities.AppSnapshotEntity
 import com.apppulse.app.data.repository.AppPulseRepository
+import com.apppulse.app.ui.components.AppIconImage
 import com.apppulse.app.ui.components.ImpactBadge
 import com.apppulse.app.ui.theme.*
 
@@ -173,15 +174,11 @@ private fun AppRowItem(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.weight(1f)
             ) {
-                Surface(
-                    shape = RoundedCornerShape(10.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant,
-                    modifier = Modifier.size(44.dp)
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(Icons.Default.Android, contentDescription = null, tint = PrimaryBlue, modifier = Modifier.size(24.dp))
-                    }
-                }
+                AppIconImage(
+                    packageName = app.packageName,
+                    modifier = Modifier.size(44.dp),
+                    shape = RoundedCornerShape(10.dp)
+                )
                 Spacer(modifier = Modifier.width(12.dp))
                 Column {
                     Text(text = app.label, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)

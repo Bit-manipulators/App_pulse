@@ -23,6 +23,7 @@ import com.apppulse.app.data.repository.AppPulseRepository
 import com.apppulse.app.domain.ai.AiExplainerService
 import com.apppulse.app.domain.ai.AiMode
 import com.apppulse.app.domain.ai.ExplanationInput
+import com.apppulse.app.ui.components.AppIconImage
 import com.apppulse.app.ui.components.ImpactBadge
 import com.apppulse.app.ui.components.TopReasonsCard
 import com.apppulse.app.ui.theme.*
@@ -76,15 +77,11 @@ fun AppDetailScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.padding(vertical = 12.dp)
                 ) {
-                    Surface(
-                        shape = RoundedCornerShape(16.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant,
-                        modifier = Modifier.size(60.dp)
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(Icons.Default.Android, contentDescription = null, tint = PrimaryBlue, modifier = Modifier.size(36.dp))
-                        }
-                    }
+                    AppIconImage(
+                        packageName = app.packageName,
+                        modifier = Modifier.size(60.dp),
+                        shape = RoundedCornerShape(16.dp)
+                    )
                     Spacer(modifier = Modifier.width(16.dp))
                     Column {
                         Text(text = app.label, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
