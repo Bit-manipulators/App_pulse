@@ -10,9 +10,14 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -85,6 +90,10 @@ fun DashboardScreen(
 
     // App Picker Search Filter
     var appSearchQuery by remember { mutableStateOf("") }
+
+    // Top Search Button & Dialog State
+    var isTopSearchOpen by remember { mutableStateOf(false) }
+    var topSearchQuery by remember { mutableStateOf("") }
 
     // Initial Telemetry Load
     LaunchedEffect(Unit) {
@@ -188,6 +197,13 @@ fun DashboardScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = { isTopSearchOpen = true }) {
+                        Icon(
+                            imageVector = Icons.Default.Search,
+                            contentDescription = "Search Any App",
+                            tint = PrimaryBlue
+                        )
+                    }
                     IconButton(onClick = { refreshTelemetry() }) {
                         Icon(
                             imageVector = Icons.Default.Refresh,
@@ -871,6 +887,184 @@ fun DashboardScreen(
                 }
             }
         )
+    }
+
+    // Top App Search Dialog Overlay
+    if (isTopSearchOpen) {
+        Dialog(
+            onDismissRequest = {
+                isTopSearchOpen = false
+                topSearchQuery = ""
+            },
+            properties = DialogProperties(usePlatformDefaultWidth = false)
+        ) {
+            Surface(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .systemBarsPadding(),
+                color = MaterialTheme.colorScheme.background
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 16.dp, vertical = 12.dp)
+                ) {
+                    // Header Search Bar
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        IconButton(onClick = {
+                            isTopSearchOpen = false
+                            topSearchQuery = ""
+                        }) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = "Close Search",
+                                tint = MaterialTheme.colorScheme.onBackground
+                            )
+                        }
+
+                        OutlinedTextField(
+                            value = topSearchQuery,
+                            onValueChange = { topSearchQuery = it },
+                            placeholder = { Text("Search installed apps...") },
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(end = 4.dp),
+                            leadingIcon = {
+                                Icon(Icons.Default.Search, contentDescription = null, tint = PrimaryBlue)
+                            },
+                            trailingIcon = {
+                                if (topSearchQuery.isNotEmpty()) {
+                                    IconButton(onClick = { topSearchQuery = "" }) {
+                                        Icon(Icons.Default.Clear, contentDescription = "Clear")
+                                    }
+                                }
+                            },
+                            singleLine = true,
+                            shape = RoundedCornerShape(14.dp)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    val matchedApps = remember(snapshots, topSearchQuery) {
+                        if (topSearchQuery.isBlank()) {
+                            snapshots
+                        } else {
+                            snapshots.filter {
+                                it.label.contains(topSearchQuery, ignoreCase = true) ||
+                                        it.packageName.contains(topSearchQuery, ignoreCase = true)
+                            }
+                        }
+                    }
+
+                    Text(
+                        text = if (topSearchQuery.isBlank()) "All Installed Apps (${matchedApps.size})" else "Found ${matchedApps.size} apps for \"$topSearchQuery\"",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    )
+
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    if (matchedApps.isEmpty()) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Icon(
+                                    imageVector = Icons.Default.Apps,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(48.dp)
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text("No apps matching \"$topSearchQuery\"", style = MaterialTheme.typography.bodyMedium)
+                            }
+                        }
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            items(matchedApps, key = { it.packageName }) { app ->
+                                Card(
+                                    shape = RoundedCornerShape(14.dp),
+                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            isTopSearchOpen = false
+                                            topSearchQuery = ""
+                                            onNavigateToAppTest(app.packageName)
+                                        }
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(14.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Surface(
+                                            shape = RoundedCornerShape(10.dp),
+                                            color = MaterialTheme.colorScheme.surfaceVariant,
+                                            modifier = Modifier.size(42.dp)
+                                        ) {
+                                            Box(contentAlignment = Alignment.Center) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Android,
+                                                    contentDescription = null,
+                                                    tint = AccentCyan,
+                                                    modifier = Modifier.size(22.dp)
+                                                )
+                                            }
+                                        }
+
+                                        Spacer(modifier = Modifier.width(12.dp))
+
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                text = app.label,
+                                                style = MaterialTheme.typography.titleMedium,
+                                                fontWeight = FontWeight.SemiBold
+                                            )
+                                            Text(
+                                                text = app.packageName,
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                maxLines = 1
+                                            )
+                                        }
+
+                                        Button(
+                                            onClick = {
+                                                isTopSearchOpen = false
+                                                topSearchQuery = ""
+                                                onNavigateToAppTest(app.packageName)
+                                            },
+                                            shape = RoundedCornerShape(10.dp),
+                                            colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue),
+                                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                                        ) {
+                                            Icon(Icons.Default.PlayArrow, contentDescription = null, tint = DeepNavy, modifier = Modifier.size(16.dp))
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text("Test", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = DeepNavy)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
