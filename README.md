@@ -1,21 +1,19 @@
+<div align="center">
+
 # ⚡ AppPulse
 ### Intelligent, On-Device Android Health & Resource Impact Manager
 
-<p align="center">
-  <img src="screenshots/01_dashboard.png" width="280" alt="AppPulse Dashboard" />
-  &nbsp;&nbsp;&nbsp;&nbsp;
-  <img src="screenshots/02_review_flagged.png" width="280" alt="Review Flagged Apps" />
-  &nbsp;&nbsp;&nbsp;&nbsp;
-  <img src="screenshots/03_app_diagnostics.png" width="280" alt="App Diagnostics" />
-</p>
+[![Kotlin](https://img.shields.io/badge/Kotlin-2.0.21-7F52FF?style=for-the-badge&logo=kotlin&logoColor=white)](https://kotlinlang.org/)
+[![Jetpack Compose](https://img.shields.io/badge/Jetpack_Compose-Material_3-4285F4?style=for-the-badge&logo=android&logoColor=white)](https://developer.android.com/jetpack/compose)
+[![Target SDK](https://img.shields.io/badge/Target_SDK-Android_15_(API_35)-34A853?style=for-the-badge&logo=android&logoColor=white)](https://developer.android.com/)
+[![Privacy](https://img.shields.io/badge/Privacy-100%25_On--Device-00ACC1?style=for-the-badge)](#-privacy--security-by-default)
+[![License: MIT](https://img.shields.io/badge/License-MIT-F4B400?style=for-the-badge)](LICENSE)
 
-<p align="center">
-  <img src="https://img.shields.io/badge/Kotlin-2.0.21-purple?style=for-the-badge&logo=kotlin" />
-  <img src="https://img.shields.io/badge/Jetpack_Compose-Material_3-blue?style=for-the-badge&logo=android" />
-  <img src="https://img.shields.io/badge/Target_SDK-Android_15_(API_35)-brightgreen?style=for-the-badge&logo=android" />
-  <img src="https://img.shields.io/badge/Privacy-100%25_On--Device-teal?style=for-the-badge" />
-  <img src="https://img.shields.io/badge/Architecture-Clean_%2B_Pure_Kotlin_Core-orange?style=for-the-badge" />
-</p>
+<br/>
+
+**A transparent, privacy-first Android platform delivering deterministic scores and actionable recommendations to optimize storage, battery drain, and app permissions.**
+
+</div>
 
 ---
 
@@ -31,17 +29,19 @@ Most phone cleaners push deceptive scare tactics, terminate background tasks ind
 
 ---
 
-## 📸 Visual Showcase
+## 📸 App Showcase
 
 <div align="center">
 
-| ⚡ Dashboard | 🔍 Review Flagged | 📊 Health Diagnostics |
+| ⚡ **Dashboard** | 🔍 **Review Flagged** | 📊 **Health Diagnostics** |
 | :---: | :---: | :---: |
-| <img src="screenshots/01_dashboard.png" width="230"/> | <img src="screenshots/02_review_flagged.png" width="230"/> | <img src="screenshots/03_app_diagnostics.png" width="230"/> |
+| <img src="screenshots/01_dashboard.png" width="220" alt="Dashboard" /> | <img src="screenshots/02_review_flagged.png" width="220" alt="Review Flagged Apps" /> | <img src="screenshots/03_app_diagnostics.png" width="220" alt="App Diagnostics" /> |
+| *Real-time Phone Health & Storage Meter* | *Priority "Fix First" Card Deck* | *Point Deductions & Storage Breakdown* |
 
-| 📱 All Apps Directory | 💬 Ask AI (NLQ) | 🛡️ Privacy & Settings |
+| 📱 **All Apps Directory** | 💬 **Ask AI (NLQ)** | 🛡️ **Privacy & Settings** |
 | :---: | :---: | :---: |
-| <img src="screenshots/04_all_apps.png" width="230"/> | <img src="screenshots/05_ask_ai.png" width="230"/> | <img src="screenshots/06_settings_privacy.png" width="230"/> |
+| <img src="screenshots/04_all_apps.png" width="220" alt="All Apps" /> | <img src="screenshots/05_ask_ai.png" width="220" alt="Ask AI" /> | <img src="screenshots/06_settings_privacy.png" width="220" alt="Settings & Privacy" /> |
+| *Filterable App Inventory & Search* | *On-Device Semantic Query Engine* | *Zero-Upload Privacy Controls* |
 
 </div>
 
