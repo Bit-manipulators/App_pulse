@@ -3,6 +3,7 @@
 # ⚡ AppPulse
 ### Intelligent, On-Device Android Health & Resource Impact Manager
 
+[![CI/CD Pipeline](https://github.com/Bit-manipulators/App_pulse/actions/workflows/android-ci.yml/badge.svg)](https://github.com/Bit-manipulators/App_pulse/actions/workflows/android-ci.yml)
 [![Kotlin](https://img.shields.io/badge/Kotlin-2.0.21-7F52FF?style=for-the-badge&logo=kotlin&logoColor=white)](https://kotlinlang.org/)
 [![Jetpack Compose](https://img.shields.io/badge/Jetpack_Compose-Material_3-4285F4?style=for-the-badge&logo=android&logoColor=white)](https://developer.android.com/jetpack/compose)
 [![Target SDK](https://img.shields.io/badge/Target_SDK-Android_15_(API_35)-34A853?style=for-the-badge&logo=android&logoColor=white)](https://developer.android.com/)
@@ -130,6 +131,29 @@ cd App_pulse
 # Install on a connected device/emulator
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
+
+---
+
+## 🔄 Automated CI/CD Pipeline
+
+AppPulse includes a robust **GitHub Actions** CI/CD pipeline (`.github/workflows/android-ci.yml`) that triggers on every push and pull request to `main`:
+
+```mermaid
+flowchart LR
+    A["🚀 Push / PR to main"] --> B["🧪 Job 1: Run Unit Tests"]
+    B -->|Pass| C["📦 Job 2: Build Standalone APK"]
+    B -->|Fail| D["❌ Pipeline Halt & Upload Reports"]
+    C --> E["📥 Publish Standalone APK Artifact"]
+```
+
+1. **🧪 Automated Testing Stage**:
+   - Executes all pure Kotlin scoring engine unit tests (`:core-scoring:test`).
+   - Executes all Android app unit tests (`:app:testDebugUnitTest`).
+   - Automatically archives test reports as run artifacts.
+2. **📦 Standalone Build & Packaging Stage**:
+   - Compiles and packages `app-debug.apk`.
+   - Verifies the output binary integrity.
+   - Automatically uploads `AppPulse-Standalone-APK` as a downloadable artifact on GitHub Actions.
 
 ---
 
