@@ -21,7 +21,9 @@ data class DevicePerformanceMetrics(
     val deviceModel: String,
     val androidVersion: String,
     val performanceScore: Int,
-    val performanceStatus: String
+    val performanceStatus: String,
+    val cpuPerformanceSummary: String = "$cpuCores Cores Active",
+    val gpuPerformanceSummary: String = "Hardware Accelerated"
 )
 
 class DevicePerformanceCollector(private val context: Context) {
@@ -53,6 +55,11 @@ class DevicePerformanceCollector(private val context: Context) {
         val cores = Runtime.getRuntime().availableProcessors()
         val model = "${Build.MANUFACTURER} ${Build.MODEL}".trim().replaceFirstChar { it.uppercase() }
         val androidVer = "Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})"
+        val abi = Build.SUPPORTED_ABIS.firstOrNull() ?: "arm64-v8a"
+        val glVersion = actManager?.deviceConfigurationInfo?.glEsVersion ?: "3.2"
+        val isLowRam = actManager?.isLowRamDevice ?: false
+        val cpuSummary = "$cores Cores ($abi) • Optimal"
+        val gpuSummary = if (!isLowRam) "Hardware Accelerated • OpenGL ES $glVersion" else "Active • OpenGL ES $glVersion"
 
         // 4. Performance Vitality Score (0 - 100)
         // High free RAM and high free storage = higher score
@@ -81,7 +88,9 @@ class DevicePerformanceCollector(private val context: Context) {
             deviceModel = model,
             androidVersion = androidVer,
             performanceScore = performanceScore,
-            performanceStatus = status
+            performanceStatus = status,
+            cpuPerformanceSummary = cpuSummary,
+            gpuPerformanceSummary = gpuSummary
         )
     }
 }

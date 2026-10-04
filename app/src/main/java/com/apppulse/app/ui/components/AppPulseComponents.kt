@@ -24,6 +24,81 @@ import com.apppulse.app.ui.theme.*
 import com.apppulse.scoring.model.ScoreReason
 
 @Composable
+fun MetricCircleChart(
+    title: String,
+    percentage: Int,
+    subtitle: String,
+    color: Color,
+    modifier: Modifier = Modifier,
+    size: Int = 135
+) {
+    val progress = (percentage / 100.0).toFloat().coerceIn(0f, 1f)
+    val animatedProgress by animateFloatAsState(
+        targetValue = progress,
+        animationSpec = tween(1200),
+        label = "metric_progress"
+    )
+
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = modifier
+    ) {
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier.size(size.dp)
+        ) {
+            androidx.compose.foundation.Canvas(modifier = Modifier.fillMaxSize().padding(10.dp)) {
+                // Background Track
+                drawArc(
+                    color = color.copy(alpha = 0.15f),
+                    startAngle = 135f,
+                    sweepAngle = 270f,
+                    useCenter = false,
+                    style = Stroke(width = 11.dp.toPx(), cap = StrokeCap.Round)
+                )
+                // Foreground Progress Arc
+                drawArc(
+                    color = color,
+                    startAngle = 135f,
+                    sweepAngle = 270f * animatedProgress,
+                    useCenter = false,
+                    style = Stroke(width = 11.dp.toPx(), cap = StrokeCap.Round)
+                )
+            }
+
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Text(
+                    text = "$percentage%",
+                    style = MaterialTheme.typography.titleLarge.copy(
+                        fontWeight = FontWeight.ExtraBold,
+                        color = MaterialTheme.colorScheme.onBackground
+                    )
+                )
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.labelMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = color
+                    )
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(6.dp))
+
+        Text(
+            text = subtitle,
+            style = MaterialTheme.typography.bodySmall,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+@Composable
 fun HealthScoreRing(
     score: Double,
     band: String,
