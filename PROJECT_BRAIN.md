@@ -180,3 +180,27 @@ AppPulse/
 ├── README.md
 └── PROJECT_BRAIN.md
 ```
+
+---
+
+## 7. On-Demand Diagnostics & Ollama (Qwen 2.5 Coder) Integration
+
+### 7.1 Architecture Shift: Zero-Batch Lag
+Rather than running full background evaluations and batch-scoring all 80+ installed applications on startup (which wastes battery and CPU cycles), AppPulse implements an **on-demand selective diagnostic architecture**:
+1. **Startup Synchronization**: Only basic package metadata (names, icons, package identifiers) is indexed in milliseconds.
+2. **Dashboard Sequence**:
+   - **Section 1**: Real-Time Mobile Phone Performance (RAM usage & headroom, Internal Storage, CPU Cores, Device Model, Vitality Score).
+   - **Section 2**: Application Access & Sensitive Permissions (Aggregated counts for Location, Camera, Mic, SMS, Contacts).
+   - **Section 3**: Performance AI Assistant (Context-aware local Qwen chat).
+   - **Section 4**: Choose App for Testing & Analysis (Targeted app picker).
+3. **Selective Parameter Isolation**: Users choose exactly which facets to evaluate for the selected app:
+   - 🛡️ *Security & Permissions Risk*
+   - 💾 *Storage Footprint*
+   - ⏱️ *Usage & Inactivity*
+   - ⚡ *Stability & Background Impact*
+
+### 7.2 Local Qwen Model via Ollama
+- **Local Engine**: Connects to the local host machine running `ollama run qwen2.5-coder:3b`.
+- **Zero Cloud Leakage**: Hardware metrics and permissions are processed on the local machine via `http://10.0.2.2:11434` (emulator) or ADB reversed port `11434`.
+- **Factual, Structured Generation**: Queries are structured with ground-truth device telemetry to generate objective, 3-part actionable assessments without alarmism or hallucinations.
+

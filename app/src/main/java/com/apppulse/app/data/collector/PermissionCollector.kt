@@ -99,4 +99,48 @@ class PermissionCollector(private val context: Context) {
         }
         return results
     }
+
+    fun collectPermissionsForPackage(packageName: String, category: Int = android.content.pm.ApplicationInfo.CATEGORY_UNDEFINED): List<PermissionStatEntity> {
+        val pm = context.packageManager
+        val results = mutableListOf<PermissionStatEntity>()
+        try {
+            val pkgInfo = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                pm.getPackageInfo(packageName, PackageManager.PackageInfoFlags.of(PackageManager.GET_PERMISSIONS.toLong()))
+            } else {
+                @Suppress("DEPRECATION")
+                pm.getPackageInfo(packageName, PackageManager.GET_PERMISSIONS)
+            }
+
+            val requestedPermissions = pkgInfo.requestedPermissions ?: emptyArray()
+            val requestedFlags = pkgInfo.requestedPermissionsFlags ?: IntArray(0)
+
+            for (i in requestedPermissions.indices) {
+                val permName = requestedPermissions[i]
+                val isGranted = if (i < requestedFlags.size) {
+                    (requestedFlags[i] and PackageInfo.REQUESTED_PERMISSION_GRANTED) != 0
+                } else false
+
+                val detail = permissionMap[permName]
+                if (detail != null) {
+                    val plausibility = PermissionPlausibilityRules.checkPlausibility(category, detail.categoryName)
+                    results.add(
+                        PermissionStatEntity(
+                            packageName = packageName,
+                            scanId = 0L,
+                            permission = permName,
+                            requested = true,
+                            granted = isGranted,
+                            isSensitive = detail.isSensitive,
+                            categoryName = detail.categoryName,
+                            plainExplanation = detail.plainExplanation,
+                            isUnusual = plausibility.isUnusual
+                        )
+                    )
+                }
+            }
+        } catch (e: Exception) {
+            // Ignore error
+        }
+        return results
+    }
 }

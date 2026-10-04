@@ -50,30 +50,31 @@ Most phone cleaners push deceptive scare tactics, terminate background tasks ind
 
 ## 🚀 Core Features
 
-### 1. 🎯 Deterministic Scoring Engine
-- **App Health Score ($0 - 100$)**: Subtracts explicit penalties for dormancy ($>90$ days unused $\to -90\text{ pts}$), bloated caches ($>60\%$ cache $\to -15\text{ pts}$), and excessive sensitive permissions.
-- **Resource Impact Score ($0 - 100$)**: Multi-factor weighted evaluation across **Security & Privacy** (30%), **Storage Impact** (20%), **Usage Relevance** (15%), **Runtime Stability** (20%), and **Platform Maintenance** (15%).
-- **Phone Health Score ($0 - 100$)**: Aggregate composite meter providing an instant health check of your entire device.
-- **Dynamic Renormalization**: If platform restrictions or OEM limitations hide an API signal (e.g. `ApplicationExitInfo` prior to API 30), weights automatically rebalance dynamically so scores stay mathematically sound.
+### 1. ⚡ Real-Time Mobile Phone Performance
+- Displays live hardware telemetry upon opening the app: **RAM Memory** (used, available headroom, percentage load), **Internal Storage** (used, free space, percentage capacity), **CPU Cores**, **Device Model**, and **OS Version**.
+- Computes a dynamic **Phone Vitality Index** categorized into *Optimal*, *Good*, *Moderate*, and *Heavy Load*.
 
-### 2. 🗂️ "Fix First" Priority Deck
-- Identifies the top applications creating the highest impact or risk.
-- Presents a fluid card interface with 1-tap quick actions: **App Info**, **Uninstall**, **Keep App**, or **Ignore**.
+### 2. 🔐 Aggregated Application Access & Permissions
+- Transparently audits installed applications to show counts granted sensitive privileges:
+  - 📍 **Location** (Fine, Coarse & Background)
+  - 📷 **Camera**
+  - 🎙️ **Microphone**
+  - 💬 **SMS & Call Logs**
+  - 👥 **Contacts**
 
-### 3. 🧠 Ask AI: Natural Language Query Engine
-- Offline semantic intent extractor that allows users to ask natural questions:
-  - *"What should I fix first?"*
-  - *"Which apps over 500 MB haven't I used in 30 days?"*
-  - *"Show apps with sensitive permissions"*
-- Zero remote LLM latency. Guaranteed instant answers that strictly match on-device metrics.
+### 3. 🤖 Performance AI Assistant (Powered by Qwen 2.5 Coder via Ollama)
+- Interactive on-device performance chat powered by local **Ollama** running `qwen2.5-coder:3b`.
+- Context-aware intelligence fed with actual hardware metrics and permission access data.
+- Quick prompt chips for instant answers on RAM vitality, permission auditing, storage optimization, and background battery drain without sending personal data to the cloud.
 
-### 4. 🔬 Deep Health Diagnostics
-- Detailed storage breakdowns: **App Code Size**, **User Data**, and **Temporary Cache**.
-- Sensitive permission audit covering SMS, Contacts, Location, Camera, Microphone, and Accessibility services.
-- Top 3 point-deduction factors clearly displayed on every app detail screen.
-
-### 5. 🛡️ Standalone APK Scanner
-- Inspect downloaded or uninstalled APK files before installation to detect target SDK deprecation, sensitive declared permissions, and unusual manifest flags.
+### 4. 🎯 Selective On-Demand App Testing & Parameter Analysis
+- **Zero Batch Lag**: Does not scan and score all 80+ applications at once on startup. Instead, users selectively choose which application they want to test.
+- Customizable parameter options:
+  - 🛡️ **Security & Permissions Risk**: Evaluates sensitive privileges, background access, and component blast radius.
+  - 💾 **Storage Footprint**: Measures code size, user data, and temporary cache bloat.
+  - ⏱️ **Usage & Inactivity**: Audits screen time, launch frequency, and dormancy windows.
+  - ⚡ **Stability & Background Impact**: Checks crash frequency, ANR exits, and memory pressure.
+- Runs local Qwen AI inference to generate an objective 3-part assessment with real metrics and actionable user steps.
 
 ---
 

@@ -71,8 +71,9 @@ dependencies {
     // DataStore Preferences
     implementation("androidx.datastore:datastore-preferences:1.1.1")
 
-    // JSON serialization
+    // JSON serialization & Networking
     implementation("com.google.code.gson:gson:2.11.0")
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
 
     // Room Database
     implementation("androidx.room:room-runtime:2.6.1")

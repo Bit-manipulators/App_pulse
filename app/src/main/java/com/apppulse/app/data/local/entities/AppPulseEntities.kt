@@ -50,7 +50,12 @@ data class UsageStatEntity(
     val foreground30dMs: Long,
     val sessionsCount: Int,
     val historyLimitDays: Int = 30
-)
+) {
+    val daysSinceLastUse: Int
+        get() = if (lastUsed > 0L) {
+            java.util.concurrent.TimeUnit.MILLISECONDS.toDays(System.currentTimeMillis() - lastUsed).toInt().coerceAtLeast(0)
+        } else 0
+}
 
 @Entity(tableName = "permission_stats")
 data class PermissionStatEntity(

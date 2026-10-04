@@ -144,4 +144,30 @@ class StorageCollector(private val context: Context) {
             totalBytes = apkSize + (apkSize / 2)
         )
     }
+
+    fun getStorageForPackage(pkg: String): StorageStatEntity {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val storageStatsManager = context.getSystemService(Context.STORAGE_STATS_SERVICE) as? StorageStatsManager
+            if (storageStatsManager != null) {
+                try {
+                    val appStats = storageStatsManager.queryStatsForPackage(
+                        StorageManager.UUID_DEFAULT,
+                        pkg,
+                        Process.myUserHandle()
+                    )
+                    return StorageStatEntity(
+                        packageName = pkg,
+                        scanId = 0L,
+                        appBytes = appStats.appBytes,
+                        dataBytes = appStats.dataBytes,
+                        cacheBytes = appStats.cacheBytes,
+                        totalBytes = appStats.appBytes + appStats.dataBytes
+                    )
+                } catch (e: Exception) {
+                    // Fall back
+                }
+            }
+        }
+        return createFallbackStat(pkg, 0L)
+    }
 }

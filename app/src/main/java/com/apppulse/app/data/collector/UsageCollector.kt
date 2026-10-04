@@ -141,4 +141,52 @@ class UsageCollector(private val context: Context) {
         }
         return map
     }
+
+    fun getUsageForPackage(pkg: String, updateTime: Long = 0L, installTime: Long = 0L): UsageStatEntity {
+        val now = System.currentTimeMillis()
+        val thirtyDaysAgo = now - TimeUnit.DAYS.toMillis(30)
+        val sevenDaysAgo = now - TimeUnit.DAYS.toMillis(7)
+
+        if (hasUsageAccess()) {
+            val usageStatsManager = context.getSystemService(Context.USAGE_STATS_SERVICE) as? UsageStatsManager
+            if (usageStatsManager != null) {
+                try {
+                    val stats = usageStatsManager.queryUsageStats(UsageStatsManager.INTERVAL_DAILY, thirtyDaysAgo, now)
+                    val appStats = stats?.filter { it.packageName == pkg } ?: emptyList()
+                    val totalForeground = appStats.sumOf { it.totalTimeInForeground }
+                    val lastUsed = appStats.maxOfOrNull { it.lastTimeUsed } ?: 0L
+
+                    val daysSinceLastUse = if (lastUsed > 0L) {
+                        TimeUnit.MILLISECONDS.toDays(now - lastUsed).coerceAtLeast(0)
+                    } else {
+                        val ref = if (updateTime > 0) updateTime else installTime
+                        if (ref > 0) TimeUnit.MILLISECONDS.toDays(now - ref).coerceAtLeast(0) else 999L
+                    }
+
+                    return UsageStatEntity(
+                        packageName = pkg,
+                        scanId = 0L,
+                        lastUsed = lastUsed,
+                        foreground7dMs = totalForeground / 4,
+                        foreground30dMs = totalForeground,
+                        sessionsCount = 0,
+                        historyLimitDays = 30
+                    )
+                } catch (e: Exception) {
+                    // Fall back
+                }
+            }
+        }
+
+        val ref = if (updateTime > 0) updateTime else installTime
+        return UsageStatEntity(
+            packageName = pkg,
+            scanId = 0L,
+            lastUsed = ref,
+            foreground7dMs = 0L,
+            foreground30dMs = 0L,
+            sessionsCount = 0,
+            historyLimitDays = 30
+        )
+    }
 }

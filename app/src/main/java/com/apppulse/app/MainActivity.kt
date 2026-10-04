@@ -33,7 +33,7 @@ class MainActivity : ComponentActivity() {
 
         if (hasAccess) {
             lifecycleScope.launch {
-                repository.performScan()
+                repository.syncAppInventory()
             }
         }
 

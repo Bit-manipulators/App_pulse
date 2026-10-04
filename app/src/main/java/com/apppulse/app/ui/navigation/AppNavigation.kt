@@ -1,11 +1,14 @@
 package com.apppulse.app.ui.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
+import com.apppulse.app.data.local.entities.AppSnapshotEntity
 import com.apppulse.app.data.repository.AppPulseRepository
 import com.apppulse.app.ui.screens.allapps.AllAppsScreen
 import com.apppulse.app.ui.screens.apkscan.ApkScanScreen
@@ -15,6 +18,7 @@ import com.apppulse.app.ui.screens.nlq.AskAppPulseScreen
 import com.apppulse.app.ui.screens.onboarding.OnboardingScreen
 import com.apppulse.app.ui.screens.review.ReviewScreen
 import com.apppulse.app.ui.screens.settings.SettingsScreen
+import com.apppulse.app.ui.screens.test.AppTestScreen
 
 object Destinations {
     const val ONBOARDING = "onboarding"
@@ -22,11 +26,13 @@ object Destinations {
     const val REVIEW = "review"
     const val ALL_APPS = "all_apps"
     const val APP_DETAIL = "detail/{packageName}"
+    const val APP_TEST = "app_test/{packageName}"
     const val NLQ = "nlq"
     const val APK_SCAN = "apk_scan"
     const val SETTINGS = "settings"
 
     fun appDetail(packageName: String) = "detail/$packageName"
+    fun appTest(packageName: String) = "app_test/$packageName"
 }
 
 @Composable
@@ -58,7 +64,8 @@ fun AppNavigation(
                 onNavigateToNlq = { navController.navigate(Destinations.NLQ) },
                 onNavigateToApkScan = { navController.navigate(Destinations.APK_SCAN) },
                 onNavigateToSettings = { navController.navigate(Destinations.SETTINGS) },
-                onNavigateToDetail = { pkg -> navController.navigate(Destinations.appDetail(pkg)) }
+                onNavigateToDetail = { pkg -> navController.navigate(Destinations.appDetail(pkg)) },
+                onNavigateToAppTest = { pkg -> navController.navigate(Destinations.appTest(pkg)) }
             )
         }
 
@@ -87,6 +94,30 @@ fun AppNavigation(
                 packageName = pkg,
                 repository = repository,
                 onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(
+            route = Destinations.APP_TEST,
+            arguments = listOf(navArgument("packageName") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val pkg = backStackEntry.arguments?.getString("packageName") ?: ""
+            val snapshots by repository.snapshotsFlow.collectAsState(initial = emptyList())
+            val app = snapshots.firstOrNull { it.packageName == pkg }
+                ?: AppSnapshotEntity(
+                    packageName = pkg,
+                    label = pkg.substringAfterLast("."),
+                    versionName = "1.0",
+                    versionCode = 1L,
+                    targetSdk = 35,
+                    installTime = 0L,
+                    updateTime = 0L,
+                    category = 0,
+                    isSystem = false
+                )
+            AppTestScreen(
+                app = app,
+                onNavigateBack = { navController.popBackStack() }
             )
         }
 

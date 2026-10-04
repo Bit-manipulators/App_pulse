@@ -82,6 +82,13 @@ class AppPulseRepository(private val context: Context) {
     val scoreResultsFlow: Flow<List<ScoreResultEntity>> = dao.getAllScoreResults()
     val decisionsFlow: Flow<List<UserDecisionEntity>> = dao.getAllUserDecisions()
 
+    suspend fun syncAppInventory(): List<AppSnapshotEntity> = withContext(Dispatchers.IO) {
+        val pkgResult = packageCollector.collectLaunchableApps()
+        val snapshots = pkgResult.snapshots
+        dao.insertAppSnapshots(snapshots)
+        snapshots
+    }
+
     suspend fun performScan(): Long = withContext(Dispatchers.IO) {
         _isScanning.value = true
         val startTime = System.currentTimeMillis()
