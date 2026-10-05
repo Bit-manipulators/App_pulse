@@ -18,6 +18,7 @@ import com.apppulse.app.ui.screens.nlq.AskAppPulseScreen
 import com.apppulse.app.ui.screens.onboarding.OnboardingScreen
 import com.apppulse.app.ui.screens.review.ReviewScreen
 import com.apppulse.app.ui.screens.settings.SettingsScreen
+import com.apppulse.app.ui.screens.stealth.StealthHunterScreen
 import com.apppulse.app.ui.screens.test.AppTestScreen
 
 object Destinations {
@@ -30,6 +31,7 @@ object Destinations {
     const val NLQ = "nlq"
     const val APK_SCAN = "apk_scan"
     const val SETTINGS = "settings"
+    const val STEALTH_HUNTER = "stealth_hunter"
 
     fun appDetail(packageName: String) = "detail/$packageName"
     fun appTest(packageName: String) = "app_test/$packageName"
@@ -65,7 +67,8 @@ fun AppNavigation(
                 onNavigateToApkScan = { navController.navigate(Destinations.APK_SCAN) },
                 onNavigateToSettings = { navController.navigate(Destinations.SETTINGS) },
                 onNavigateToDetail = { pkg -> navController.navigate(Destinations.appDetail(pkg)) },
-                onNavigateToAppTest = { pkg -> navController.navigate(Destinations.appTest(pkg)) }
+                onNavigateToAppTest = { pkg -> navController.navigate(Destinations.appTest(pkg)) },
+                onNavigateToStealthHunter = { navController.navigate(Destinations.STEALTH_HUNTER) }
             )
         }
 
@@ -137,6 +140,13 @@ fun AppNavigation(
 
         composable(Destinations.SETTINGS) {
             SettingsScreen(
+                repository = repository,
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(Destinations.STEALTH_HUNTER) {
+            StealthHunterScreen(
                 repository = repository,
                 onBack = { navController.popBackStack() }
             )

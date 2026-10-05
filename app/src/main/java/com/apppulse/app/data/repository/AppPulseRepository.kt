@@ -5,6 +5,8 @@ import android.os.Build
 import com.apppulse.app.data.collector.*
 import com.apppulse.app.data.local.AppPulseDatabase
 import com.apppulse.app.data.local.entities.*
+import com.apppulse.app.domain.stealth.StealthAppThreat
+import com.apppulse.app.domain.stealth.StealthHunterEngine
 import com.apppulse.scoring.HealthScorer
 import com.apppulse.scoring.ImpactScorer
 import com.apppulse.scoring.PhoneHealthScorer
@@ -70,10 +72,14 @@ class AppPulseRepository(private val context: Context) {
     private val permissionCollector = PermissionCollector(context)
     private val exitCollector = ExitCollector(context)
     private val configCollector = ConfigCollector(context)
+    private val stealthHunterEngine = StealthHunterEngine(context)
     private val gson = Gson()
 
     private val _isScanning = MutableStateFlow(false)
     val isScanning: StateFlow<Boolean> = _isScanning.asStateFlow()
+
+    private val _stealthThreats = MutableStateFlow<List<StealthAppThreat>>(emptyList())
+    val stealthThreatsFlow: StateFlow<List<StealthAppThreat>> = _stealthThreats.asStateFlow()
 
     fun hasUsageAccess(): Boolean = usageCollector.hasUsageAccess()
 
@@ -81,6 +87,21 @@ class AppPulseRepository(private val context: Context) {
     val snapshotsFlow: Flow<List<AppSnapshotEntity>> = dao.getAllSnapshots()
     val scoreResultsFlow: Flow<List<ScoreResultEntity>> = dao.getAllScoreResults()
     val decisionsFlow: Flow<List<UserDecisionEntity>> = dao.getAllUserDecisions()
+
+    suspend fun scanForStealthThreats(): List<StealthAppThreat> = withContext(Dispatchers.IO) {
+        val trustedPackages = dao.getAllUserDecisions().first()
+            .filter { it.decision == "TRUSTED_STEALTH" }
+            .map { it.packageName }
+            .toSet()
+        val threats = stealthHunterEngine.scanForThreats(trustedPackages)
+        _stealthThreats.value = threats
+        threats
+    }
+
+    suspend fun trustStealthApp(packageName: String) = withContext(Dispatchers.IO) {
+        setUserDecision(packageName, "TRUSTED_STEALTH")
+        _stealthThreats.value = _stealthThreats.value.filter { it.packageName != packageName }
+    }
 
     suspend fun syncAppInventory(): List<AppSnapshotEntity> = withContext(Dispatchers.IO) {
         val pkgResult = packageCollector.collectLaunchableApps()
@@ -220,6 +241,9 @@ class AppPulseRepository(private val context: Context) {
                 exitInfoAvailable = exitResult.isAvailable
             )
             dao.insertScanRun(updatedScan)
+
+            // 4. Scan for stealth and stalkerware threats
+            scanForStealthThreats()
 
             scanId
         } finally {

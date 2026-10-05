@@ -13,6 +13,11 @@
     <!-- Optional network permission for cloud AI proxy mode -->
     <uses-permission android:name="android.permission.INTERNET" />
 
+    <!-- Permission to detect headless/hidden stealth apps and stalkerware across the device -->
+    <uses-permission
+        android:name="android.permission.QUERY_ALL_PACKAGES"
+        tools:ignore="QueryAllPackagesPermission" />
+
     <!-- Minimal launcher-intent package visibility per PRD FR-03 & Appendix A -->
     <queries>
         <intent>

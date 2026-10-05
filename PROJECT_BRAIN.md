@@ -260,4 +260,53 @@ Diagnostics follow a structured 3-phase state machine:
 - **Offline Fallback Intelligence**: If local Ollama is offline or unreachable, seamlessly falls back to the deterministic on-device `NaturalLanguageQueryEngine` without throwing errors or breaking user flow.
 - **Prompt Suggestions & History Clearing**: Interactive quick-suggestion chips for common diagnostic inquiries and an instant session reset option.
 
+---
+
+## 13. Stalkerware & Stealth App Hunter (`StealthHunterEngine` & `StealthHunterScreen`)
+
+### 13.1 The Problem with Existing Antivirus Tools
+Traditional mobile antivirus and scanner applications rely almost exclusively on signature/hash lookups against known threat databases. As a result, they fail completely against:
+- Sideloaded commercial parental monitoring tools and stalkerware.
+- Covert spyware APKs modified with fresh signatures or zero-day hashes.
+- Adware or tracking services that deliberately hide their launcher activity to avoid user detection and uninstallation.
+
+### 13.2 Heuristic Non-Root Detection Architecture
+AppPulse implements an advanced heuristic engine that audits behavioral indicators across all installed packages using non-root Android APIs:
+1. **Headless Launcher Icon Verification**:
+   - Queries `packageManager.getLaunchIntentForPackage(packageName)`.
+   - Flags non-system 3rd-party applications that lack a valid `android.intent.category.LAUNCHER` activity or have disabled their launcher component to remain hidden in the app drawer.
+2. **Active Accessibility Privilege Hijacking**:
+   - Parses `Settings.Secure.getString(contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES)`.
+   - Detects whether the application has registered and activated an Accessibility Service, allowing it to scrape screens, read notification texts, and log keystrokes.
+3. **Active Device Administration Detection**:
+   - Queries `DevicePolicyManager.getActiveAdmins()`.
+   - Identifies non-system packages holding administrator capabilities that prevent uninstallation and grant lock-screen/wipe permissions.
+4. **Deceptive System Camouflage Pattern Matching**:
+   - Evaluates app label and package naming against known camouflage templates (e.g., *"System Update"*, *"Device Health"*, *"Settings Helper"*, *"Android Service"*, *"Google Play Services Verify"*).
+   - Flags non-platform apps posing as foundational operating system utilities.
+5. **Persistent Screen Overlay Rights**:
+   - Inspects `Manifest.permission.SYSTEM_ALERT_WINDOW` and queries `AppOpsManager.MODE_ALLOWED` for `OPSTR_SYSTEM_ALERT_WINDOW`.
+   - Evaluates potential for clickjacking, transparent overlays, or stealth user interface interception.
+6. **Notification Listener Interception**:
+   - Audits `Settings.Secure.ENABLED_NOTIFICATION_LISTENERS` to detect covert apps reading incoming OTPs, two-factor codes, or private chat messages.
+7. **Sideloaded Origin Tracking**:
+   - Inspects `PackageManager.getInstallSourceInfo(packageName)` (or legacy `getInstallerPackageName`) to identify packages installed outside verified app stores (Play Store, Galaxy Store, etc.).
+
+### 13.3 Strict 3-Tier Anti-False-Positive Shield
+To guarantee that mainstream communication and multimedia applications (e.g., **WhatsApp**, **Telegram**, **Spotify**, **Zoom**, **Discord**) are never misidentified as stalkerware:
+1. **Tier 1 - Reputable Package Whitelist**:
+   - Whitelists verified official namespaces: `com.whatsapp`, `org.telegram.messenger`, `com.google.*`, `com.facebook.*`, `com.spotify.*`, `com.microsoft.*`, `us.zoom.*`, and certified OEM platform namespaces (`com.samsung.*`, `com.oppo.*`, `com.oneplus.*`, `com.xiaomi.*`).
+2. **Tier 2 - Launcher Visibility Invariant Gate**:
+   - Applications with normal, visible launcher activities and standard naming are immediately short-circuited as `SAFE` (Threat Score = 0).
+3. **Tier 3 - Compound Conjunction Rule**:
+   - Isolated permissions (such as `SYSTEM_ALERT_WINDOW` used by WhatsApp for picture-in-picture video calls) **never** trigger a warning.
+   - High or Critical threat levels require a compound conjunction: **Headless / Covert Presence** + **High-Risk Privilege (Accessibility / Device Admin)** + **Sideloaded / Camouflage Context**.
+
+### 13.4 Mitigation & Control Actions
+- **Direct Navigation to Settings**: Deep-links directly to Android's native Settings pages (`ACTION_APPLICATION_DETAILS_SETTINGS`, `ACTION_ACCESSIBILITY_SETTINGS`, `ACTION_DEVICE_ADMIN_SETTINGS`) for safe, non-destructive privilege revocation.
+- **Native Uninstallation**: Directly invokes `Intent.ACTION_UNINSTALL_PACKAGE` to remove suspicious packages safely.
+- **1-Tap User Whitelisting ("Trust App")**: Stores trusted user overrides in the local repository to permanently exempt user-approved background utilities (e.g., automation tools or custom plugins).
+- **On-Device AI Threat Consultation**: Leverages Ollama Qwen to generate structured, contextual threat explanations directly on-screen.
+
+
 

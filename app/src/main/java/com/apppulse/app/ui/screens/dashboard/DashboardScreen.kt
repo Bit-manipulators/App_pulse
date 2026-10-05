@@ -35,6 +35,7 @@ import com.apppulse.app.data.collector.DevicePerformanceMetrics
 import com.apppulse.app.data.local.entities.AppSnapshotEntity
 import com.apppulse.app.data.remote.OllamaClient
 import com.apppulse.app.data.repository.AppPulseRepository
+import com.apppulse.app.domain.stealth.ThreatLevel
 import com.apppulse.app.ui.components.AppIconImage
 import com.apppulse.app.ui.components.MetricCircleChart
 import com.apppulse.app.ui.components.StorageProgressBar
@@ -53,7 +54,8 @@ fun DashboardScreen(
     onNavigateToApkScan: () -> Unit,
     onNavigateToSettings: () -> Unit,
     onNavigateToDetail: (String) -> Unit,
-    onNavigateToAppTest: (String) -> Unit
+    onNavigateToAppTest: (String) -> Unit,
+    onNavigateToStealthHunter: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
@@ -61,6 +63,7 @@ fun DashboardScreen(
     val scoreResults by repository.scoreResultsFlow.collectAsState(initial = emptyList())
     val decisions by repository.decisionsFlow.collectAsState(initial = emptyList())
     val decisionMap = remember(decisions) { decisions.associateBy { it.packageName } }
+    val stealthThreats by repository.stealthThreatsFlow.collectAsState(initial = emptyList())
 
     // Telemetry Collector
     val perfCollector = remember { DevicePerformanceCollector(context) }
@@ -88,6 +91,9 @@ fun DashboardScreen(
         launch(Dispatchers.IO) {
             repository.syncAppInventory()
         }
+        launch(Dispatchers.IO) {
+            repository.scanForStealthThreats()
+        }
     }
 
     fun refreshTelemetry() {
@@ -95,6 +101,9 @@ fun DashboardScreen(
             isRefreshingMetrics = true
             launch(Dispatchers.IO) {
                 deviceMetrics = perfCollector.collectMetrics()
+            }
+            launch(Dispatchers.IO) {
+                repository.scanForStealthThreats()
             }
             isRefreshingMetrics = false
         }
@@ -105,15 +114,18 @@ fun DashboardScreen(
             isRescanningOpen = true
             rescanStatus = "SCANNING"
             rescanStepText = "Inspecting installed applications..."
-            delay(700)
+            delay(600)
             rescanStepText = "Auditing runtime permissions & privileges..."
-            delay(700)
+            delay(600)
             rescanStepText = "Measuring storage footprint & cache..."
             repository.performScan()
             deviceMetrics = perfCollector.collectMetrics()
-            delay(700)
-            rescanStepText = "Calculating hardware vitality & thermals..."
             delay(600)
+            rescanStepText = "Auditing stealth services & disguised packages..."
+            repository.scanForStealthThreats()
+            delay(500)
+            rescanStepText = "Calculating hardware vitality & thermals..."
+            delay(500)
             rescanStatus = "SUCCESS"
             rescanStepText = "Scan Successful"
         }
@@ -469,6 +481,117 @@ fun DashboardScreen(
                 Spacer(modifier = Modifier.height(16.dp))
             }
 
+            // ==========================================
+            // 4. STEALTH & STALKERWARE RADAR CARD
+            // ==========================================
+            val criticalThreatCount = remember(stealthThreats) {
+                stealthThreats.count { it.threatLevel == ThreatLevel.CRITICAL || it.threatLevel == ThreatLevel.HIGH }
+            }
+            val isRadarAlert = stealthThreats.isNotEmpty()
+
+            Card(
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = if (isRadarAlert) HealthAttentionBg else MaterialTheme.colorScheme.surface
+                ),
+                border = if (isRadarAlert) {
+                    androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFF5252).copy(alpha = 0.5f))
+                } else {
+                    androidx.compose.foundation.BorderStroke(1.dp, HealthHealthy.copy(alpha = 0.25f))
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onNavigateToStealthHunter() }
+            ) {
+                Column(modifier = Modifier.padding(20.dp)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Surface(
+                                shape = CircleShape,
+                                color = if (isRadarAlert) Color(0xFFFF5252) else HealthHealthy,
+                                modifier = Modifier.size(40.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        imageVector = if (isRadarAlert) Icons.Default.VisibilityOff else Icons.Default.Security,
+                                        contentDescription = null,
+                                        tint = if (isRadarAlert) Color.White else DeepNavy,
+                                        modifier = Modifier.size(22.dp)
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        text = if (isRadarAlert) "Covert Threats Detected!" else "Stealth Radar: Clear",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (isRadarAlert) Color(0xFFFF5252) else MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Surface(
+                                        shape = RoundedCornerShape(6.dp),
+                                        color = if (isRadarAlert) Color(0xFFFF5252).copy(alpha = 0.15f) else HealthHealthy.copy(alpha = 0.15f)
+                                    ) {
+                                        Text(
+                                            text = if (isRadarAlert) "$criticalThreatCount HIGH RISK" else "ACTIVE",
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontWeight = FontWeight.Bold,
+                                            color = if (isRadarAlert) Color(0xFFFF5252) else HealthHealthy
+                                        )
+                                    }
+                                }
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = if (isRadarAlert)
+                                        "${stealthThreats.size} app(s) hiding launcher icons or holding covert access"
+                                    else
+                                        "No hidden stalkerware, headless trackers or deceptive overlays",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                            contentDescription = "Open Stealth Hunter",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = if (isRadarAlert) "Heuristic Stalkerware & Stealth Audit" else "3-Tier Anti-False-Positive Shield Enabled",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = "Launch Hunter →",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = PrimaryBlue
+                        )
+                    }
+                }
+            }
+
             Spacer(modifier = Modifier.height(24.dp))
         }
     }
@@ -662,6 +785,19 @@ fun DashboardScreen(
                                     val usedGb = String.format("%.1f", usedBytes / (1024.0 * 1024.0 * 1024.0))
                                     val totGb = String.format("%.1f", totalBytes / (1024.0 * 1024.0 * 1024.0))
                                     Text("$usedGb / $totGb GB", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+                                }
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text("Stealth Radar", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(
+                                        if (stealthThreats.isEmpty()) "0 Covert Apps (Clean)" else "${stealthThreats.size} Flagged!",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (stealthThreats.isEmpty()) HealthHealthy else Color(0xFFFF5252)
+                                    )
                                 }
                             }
                         }
